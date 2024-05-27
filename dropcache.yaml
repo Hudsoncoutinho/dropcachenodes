@@ -1,0 +1,49 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: clear-cache-cronjob
+  namespace: kube-system
+spec:
+  schedule: "0 4 * * *" # Executa diariamente às 4:00 da manhã
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: clear-cache-job
+            image: bitnami/kubectl:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              kubectl apply -f - <<EOF
+              apiVersion: apps/v1
+              kind: DaemonSet
+              metadata:
+                name: clear-cache-daemonset
+                namespace: kube-system
+              spec:
+                selector:
+                  matchLabels:
+                    name: clear-cache
+                template:
+                  metadata:
+                    labels:
+                      name: clear-cache
+                  spec:
+                    containers:
+                    - name: clear-cache
+                      image: busybox
+                      command:
+                      - /bin/sh
+                      - -c
+                      - |
+                        echo 3 > /proc/sys/vm/drop_caches
+                        sleep 60
+                    securityContext:
+                      privileged: true
+                    restartPolicy: Never
+                    nodeSelector:
+                      kubernetes.io/os: linux
+              EOF
+          restartPolicy: OnFailure
